@@ -69,7 +69,35 @@ const wembiiMonthly = [
 const rows = document.querySelector('#movementRows');
 const monthlyRows = document.querySelector('#monthlyRows');
 const companyNames = ['Todas las empresas', 'Wembii', 'Ark Host', 'Ark Studio'];
-const monthNames = { all: 'Global', '2026-01': 'Enero 2026', '2026-02': 'Febrero 2026', '2026-03': 'Marzo 2026', '2026-04': 'Abril 2026', '2026-05': 'Mayo 2026', '2026-06': 'Junio 2026', '2026-07': 'Julio 2026', '2026-08': 'Agosto 2026', '2026-09': 'Septiembre 2026' };
+const MONTH_LABELS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+function monthLabel(monthKey) {
+  if (monthKey === 'all') return 'Global';
+  const [year, month] = monthKey.split('-');
+  return `${MONTH_LABELS[Number(month) - 1]} ${year}`;
+}
+function generateAllMonths() {
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth() + 6, 1);
+  const months = [];
+  const cursor = new Date(2026, 0, 1);
+  while (cursor <= end) {
+    months.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return months;
+}
+const ALL_MONTHS = generateAllMonths();
+const CURRENT_MONTH_KEY = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+function populateMonthSelects() {
+  const descendingMonths = [...ALL_MONTHS].reverse();
+  const monthSelect = document.querySelector('#monthSelect');
+  monthSelect.innerHTML = `<option value="all">Global</option>${descendingMonths.map((monthKey) => `<option value="${monthKey}">${monthLabel(monthKey)}</option>`).join('')}`;
+  monthSelect.value = 'all';
+  const movementMonth = document.querySelector('#movementMonth');
+  movementMonth.innerHTML = descendingMonths.map((monthKey) => `<option value="${monthKey}">${monthLabel(monthKey)}</option>`).join('');
+}
+populateMonthSelects();
 const typeLabels = { income: { singular: 'Ingreso', plural: 'Ingresos' }, expense: { singular: 'Egreso', plural: 'Egresos' }, investment: { singular: 'Inversión', plural: 'Inversiones' } };
 let companyIndex = 0;
 let movementType = 'income';
@@ -78,6 +106,7 @@ let editingMovement = null;
 let movementSort = { key: 'description', direction: 1 };
 let excludedMetrics = new Set();
 let distributionBasis = 'income';
+let selectedRows = new Set();
 
 function companyBadge(name) {
   return name === 'Wembii' ? 'badge-n' : name === 'Ark Host' ? 'badge-v' : 'badge-b';
@@ -105,7 +134,7 @@ async function loadMovements() {
     card: row.card || '',
     code: row.companies.name[0],
     badge: companyBadge(row.companies.name),
-    date: monthNames[row.month],
+    date: monthLabel(row.month),
     category: typeLabels[row.type].singular
   }));
 }
@@ -130,8 +159,8 @@ function wembiiMonthValues(month) {
 
 function companyMonthValues(company, month) {
   if (month === 'all') {
-    return wembiiMonthly.reduce((totals, item) => {
-      const values = companyMonthValues(company, item.month);
+    return ALL_MONTHS.reduce((totals, monthKey) => {
+      const values = companyMonthValues(company, monthKey);
       return { income: totals.income + values.income, expenses: totals.expenses + values.expenses, investment: totals.investment + values.investment };
     }, { income: 0, expenses: 0, investment: 0 });
   }
@@ -147,8 +176,7 @@ function companyMonthValues(company, month) {
 }
 
 function cumulativeNet(companies, uptoMonth) {
-  return wembiiMonthly
-    .map((item) => item.month)
+  return ALL_MONTHS
     .filter((month) => uptoMonth === 'all' || month <= uptoMonth)
     .reduce((total, month) => companies.reduce((subtotal, company) => {
       const values = companyMonthValues(company, month);
@@ -185,23 +213,39 @@ function renderRows() {
   updateMetrics();
   const statusFilter = document.querySelector('#statusFilter').value;
   const categoryFilter = document.querySelector('#categoryFilter').value.trim().toLowerCase();
-  const filteredDetails = periodVisible.filter((movement) => movement.type === movementType && (statusFilter === 'all' || movement.status === statusFilter) && (!categoryFilter || movement.category.toLowerCase().includes(categoryFilter)));
+  const searchTerm = document.querySelector('#movementSearch').value.trim().toLowerCase();
+  const filteredDetails = periodVisible.filter((movement) => movement.type === movementType && (statusFilter === 'all' || movement.status === statusFilter) && (!categoryFilter || movement.category.toLowerCase().includes(categoryFilter)) && (!searchTerm || movement.description.toLowerCase().includes(searchTerm) || movement.company.toLowerCase().includes(searchTerm)));
   filteredDetails.sort((left, right) => {
     const leftValue = movementSort.key === 'amount' ? convertedValues(left).clp : String(left[movementSort.key] || '').toLowerCase();
     const rightValue = movementSort.key === 'amount' ? convertedValues(right).clp : String(right[movementSort.key] || '').toLowerCase();
     return (leftValue > rightValue ? 1 : leftValue < rightValue ? -1 : 0) * movementSort.direction;
   });
-  document.querySelector('#movementSubtitle').textContent = `${typeLabels[movementType].plural} en detalle · ${monthNames[selectedMonth]}`;
+  document.querySelector('#movementSubtitle').textContent = `${typeLabels[movementType].plural} en detalle · ${monthLabel(selectedMonth)}`;
   const isGlobal = selected === 'Todas las empresas';
   document.querySelector('#companyHeader').style.display = isGlobal ? '' : 'none';
   document.querySelector('#dateHeader').style.display = isGlobal ? '' : 'none';
+  const visibleIds = new Set(filteredDetails.map((movement) => movement.id));
+  selectedRows.forEach((id) => { if (!visibleIds.has(id)) selectedRows.delete(id); });
   rows.innerHTML = filteredDetails.map((movement) => {
     const values = convertedValues(movement);
     const sign = movement.type !== 'income' ? '-' : '+';
     const amountClass = movement.type !== 'income' ? 'expense-amount' : 'income-amount';
     const payment = movement.type !== 'income' ? `${movement.paymentMethod || 'No especificada'}${movement.card ? ` · ${movement.card}` : ''}` : '—';
-    return `<tr class="editable-row" data-id="${movement.id}"><td>${movement.description}</td>${isGlobal ? `<td><span class="company-cell"><i class="company-badge ${movement.badge}">${movement.code}</i>${movement.company}</span></td><td>${movement.date}</td>` : ''}<td>${movement.category}</td><td><button type="button" class="status status-toggle ${movement.status === 'Pagado' ? 'status-paid' : 'status-pending'}" data-id="${movement.id}">${movement.status}</button></td><td>${payment}</td><td class="${amountClass}">${sign}${formatMoney(values.clp, 'CLP')}<small class="converted">${sign}${formatMoney(values.usd, 'USD')}</small></td></tr>`;
-  }).join('') || `<tr><td colspan="${isGlobal ? 7 : 5}" class="empty-state">No hay movimientos para este mes y empresa.</td></tr>`;
+    const checked = selectedRows.has(movement.id) ? 'checked' : '';
+    return `<tr class="editable-row${checked ? ' row-selected' : ''}" data-id="${movement.id}"><td class="select-col"><input type="checkbox" class="row-select" data-id="${movement.id}" ${checked} /></td><td class="desc-cell">${movement.description}</td>${isGlobal ? `<td><span class="company-cell"><i class="company-badge ${movement.badge}">${movement.code}</i>${movement.company}</span></td><td>${movement.date}</td>` : ''}<td>${movement.category}</td><td><button type="button" class="status status-toggle ${movement.status === 'Pagado' ? 'status-paid' : 'status-pending'}" data-id="${movement.id}">${movement.status}</button></td><td>${payment}</td><td class="${amountClass}">${sign}${formatMoney(values.clp, 'CLP')}<small class="converted">${sign}${formatMoney(values.usd, 'USD')}</small></td></tr>`;
+  }).join('') || `<tr><td colspan="${isGlobal ? 8 : 6}" class="empty-state">No hay movimientos para este mes y empresa.</td></tr>`;
+  updateBulkActionsUI();
+}
+
+function updateBulkActionsUI() {
+  const count = selectedRows.size;
+  const bulkActions = document.querySelector('#bulkActions');
+  bulkActions.hidden = count === 0;
+  document.querySelector('#bulkCount').textContent = `${count} seleccionado${count === 1 ? '' : 's'}`;
+  const visibleCheckboxes = document.querySelectorAll('.row-select');
+  const selectAll = document.querySelector('#selectAllRows');
+  selectAll.checked = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every((box) => box.checked);
+  selectAll.indeterminate = count > 0 && !selectAll.checked;
 }
 
 function openMovementModal(movement = null) {
@@ -209,7 +253,8 @@ function openMovementModal(movement = null) {
   document.querySelector('#modalTitle').textContent = movement ? 'Editar movimiento' : 'Añadir movimiento';
   document.querySelector('#movementDescription').value = movement?.description || '';
   document.querySelector('#movementCompany').value = movement?.company || companyNames[Math.max(companyIndex, 1)];
-  document.querySelector('#movementMonth').value = movement?.month || document.querySelector('#monthSelect').value;
+  const currentMonthSelection = document.querySelector('#monthSelect').value;
+  document.querySelector('#movementMonth').value = movement?.month || (currentMonthSelection === 'all' ? CURRENT_MONTH_KEY : currentMonthSelection);
   document.querySelector('#movementKind').value = movement?.type || movementType;
   document.querySelector('#movementCurrency').value = movement?.currency || 'CLP';
   document.querySelector('#movementAmount').value = movement?.amount || '';
@@ -218,6 +263,7 @@ function openMovementModal(movement = null) {
   document.querySelector('#movementCard').value = movement?.card || '';
   document.querySelector('#cardField').style.display = movement?.paymentMethod === 'Tarjeta' ? '' : 'none';
   document.querySelector('#deleteMovement').style.display = movement ? 'inline-block' : 'none';
+  document.querySelector('#duplicateMovement').style.display = movement ? 'inline-block' : 'none';
   document.querySelector('#movementModal').classList.add('open');
   document.querySelector('#movementModal').setAttribute('aria-hidden', 'false');
 }
@@ -231,7 +277,7 @@ function closeMovementModal() {
 function renderMonthlySummary() {
   const selected = companyNames[companyIndex];
   const companies = selected === 'Todas las empresas' ? companyNames.slice(1) : [selected];
-  const chronologicalMonths = wembiiMonthly.map((item) => item.month);
+  const chronologicalMonths = ALL_MONTHS;
   monthlyRows.innerHTML = companies.flatMap((company) => {
     let carry = 0;
     const chronologicalRows = chronologicalMonths.map((month) => {
@@ -243,7 +289,7 @@ function renderMonthlySummary() {
     carry += net;
     const netClass = net < 0 ? 'expense-amount' : 'income-amount';
     const carryClass = carry < 0 ? 'expense-amount' : 'income-amount';
-    return `<tr><td><strong>${company}</strong></td><td>${monthNames[month]}</td><td>${formatMoney(opening)}</td><td class="income-amount">${formatMoney(income)}</td><td class="expense-amount">${formatMoney(expenses)}</td><td class="${netClass}">${formatMoney(net)}</td><td class="${carryClass}"><strong>${formatMoney(carry)}</strong></td></tr>`;
+    return `<tr><td><strong>${company}</strong></td><td>${monthLabel(month)}</td><td>${formatMoney(opening)}</td><td class="income-amount">${formatMoney(income)}</td><td class="expense-amount">${formatMoney(expenses)}</td><td class="${netClass}">${formatMoney(net)}</td><td class="${carryClass}"><strong>${formatMoney(carry)}</strong></td></tr>`;
     });
     return monthlyAscending ? chronologicalRows : chronologicalRows.reverse();
   }).join('');
@@ -259,14 +305,15 @@ function renderDistribution() {
   const companies = companyNames.slice(1);
   const dotClasses = ['dot-a', 'dot-b', 'dot-c'];
   const colors = ['var(--green)', '#7ea5d6', '#f3b27f'];
-  const basisLabel = distributionBasis === 'income' ? 'Ingresos' : 'Gastos';
+  const basisLabels = { income: 'Ingresos', expenses: 'Gastos', investment: 'Inversión' };
+  const basisLabel = basisLabels[distributionBasis];
   const amounts = companies.map((company) => {
     const values = companyMonthValues(company, selectedMonth);
-    return Math.max(0, distributionBasis === 'income' ? values.income : values.expenses + values.investment);
+    return Math.max(0, values[distributionBasis]);
   });
   const total = amounts.reduce((sum, amount) => sum + amount, 0);
   title.textContent = `${basisLabel} por empresa`;
-  subtitle.textContent = `% de ${basisLabel.toLowerCase()} · ${monthNames[selectedMonth]}`;
+  subtitle.textContent = `% de ${basisLabel.toLowerCase()} · ${monthLabel(selectedMonth)}`;
   donutTotal.textContent = formatMoney(total);
   if (total <= 0) {
     donut.style.background = '#e9eeec';
@@ -322,6 +369,8 @@ document.querySelectorAll('#companyMenu button').forEach((option) => option.addE
   renderRows();
   renderMonthlySummary();
   renderDistribution();
+  renderTrendChart();
+  renderTopExpenses();
   showToast(`Viendo ${companyNames[companyIndex].toLowerCase()}`);
 }));
 
@@ -336,19 +385,29 @@ document.querySelector('#addMovement').addEventListener('click', () => openMovem
 document.querySelector('#filterButton').addEventListener('click', () => document.querySelector('#movementFilters').classList.toggle('open'));
 document.querySelector('#statusFilter').addEventListener('change', renderRows);
 document.querySelector('#categoryFilter').addEventListener('input', renderRows);
-document.querySelector('#clearFilters').addEventListener('click', () => { document.querySelector('#statusFilter').value = 'all'; document.querySelector('#categoryFilter').value = ''; renderRows(); });
+document.querySelector('#clearFilters').addEventListener('click', () => { document.querySelector('#statusFilter').value = 'all'; document.querySelector('#categoryFilter').value = ''; document.querySelector('#movementSearch').value = ''; renderRows(); });
+document.querySelector('#movementSearch').addEventListener('input', renderRows);
 document.querySelectorAll('.sort-head').forEach((head) => head.addEventListener('click', () => {
   const key = head.dataset.sort;
   movementSort = movementSort.key === key ? { key, direction: movementSort.direction * -1 } : { key, direction: 1 };
   renderRows();
 }));
-document.querySelector('#monthSelect').addEventListener('change', () => { renderRows(); renderDistribution(); });
+document.querySelector('#monthSelect').addEventListener('change', () => { renderRows(); renderDistribution(); renderTopExpenses(); });
 document.querySelector('#monthlySort').addEventListener('click', () => {
   monthlyAscending = !monthlyAscending;
   document.querySelector('#monthlySort').textContent = monthlyAscending ? '↑ Más antiguos primero' : '↓ Más recientes primero';
   renderMonthlySummary();
 });
 rows.addEventListener('click', async (event) => {
+  const checkbox = event.target.closest('.row-select');
+  if (checkbox) {
+    event.stopPropagation();
+    const id = Number(checkbox.dataset.id);
+    if (checkbox.checked) selectedRows.add(id); else selectedRows.delete(id);
+    checkbox.closest('tr').classList.toggle('row-selected', checkbox.checked);
+    updateBulkActionsUI();
+    return;
+  }
   const statusButton = event.target.closest('.status-toggle');
   if (statusButton) {
     event.stopPropagation();
@@ -367,6 +426,36 @@ rows.addEventListener('click', async (event) => {
   const movement = movements.find((item) => item.id === Number(row.dataset.id));
   if (movement) openMovementModal(movement);
 });
+document.querySelector('#selectAllRows').addEventListener('change', (event) => {
+  document.querySelectorAll('.row-select').forEach((checkbox) => {
+    checkbox.checked = event.target.checked;
+    const id = Number(checkbox.dataset.id);
+    if (event.target.checked) selectedRows.add(id); else selectedRows.delete(id);
+    checkbox.closest('tr').classList.toggle('row-selected', event.target.checked);
+  });
+  updateBulkActionsUI();
+});
+document.querySelector('#bulkClear').addEventListener('click', () => { selectedRows.clear(); renderRows(); });
+document.querySelector('#bulkDelete').addEventListener('click', async () => {
+  const ids = Array.from(selectedRows);
+  if (!ids.length || !window.confirm(`¿Eliminar ${ids.length} movimiento${ids.length === 1 ? '' : 's'}?`)) return;
+  const { error } = await supabaseClient.from('movements').delete().in('id', ids);
+  if (error) { console.error(error); showToast('Error eliminando los movimientos'); return; }
+  movements = movements.filter((movement) => !selectedRows.has(movement.id));
+  selectedRows.clear();
+  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses();
+  showToast(`${ids.length} movimiento${ids.length === 1 ? '' : 's'} eliminado${ids.length === 1 ? '' : 's'}`);
+});
+document.querySelector('#bulkDuplicate').addEventListener('click', async () => {
+  const originals = movements.filter((movement) => selectedRows.has(movement.id));
+  if (!originals.length) return;
+  const { data: inserted, error } = await supabaseClient.from('movements').insert(originals.map(movementInsertPayload)).select('id');
+  if (error) { console.error(error); showToast('Error duplicando los movimientos'); return; }
+  inserted.forEach((row, index) => movements.push({ ...originals[index], id: row.id }));
+  selectedRows.clear();
+  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses();
+  showToast(`${originals.length} movimiento${originals.length === 1 ? '' : 's'} duplicado${originals.length === 1 ? '' : 's'}`);
+});
 document.querySelector('#closeModal').addEventListener('click', closeMovementModal);
 document.querySelector('#cancelModal').addEventListener('click', closeMovementModal);
 document.querySelector('#deleteMovement').addEventListener('click', async () => {
@@ -375,8 +464,20 @@ document.querySelector('#deleteMovement').addEventListener('click', async () => 
   if (error) { console.error(error); showToast('Error eliminando el movimiento'); return; }
   movements = movements.filter((item) => item.id !== editingMovement.id);
   closeMovementModal();
-  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution();
+  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses();
   showToast('Movimiento eliminado');
+});
+function movementInsertPayload(movement) {
+  return { company_id: companyIds[movement.company], month: movement.month, type: movement.type, description: movement.description, amount: movement.amount, currency: movement.currency, status: movement.status, payment_method: movement.paymentMethod || null, card: movement.card || null };
+}
+document.querySelector('#duplicateMovement').addEventListener('click', async () => {
+  if (!editingMovement) return;
+  const { data: inserted, error } = await supabaseClient.from('movements').insert(movementInsertPayload(editingMovement)).select('id').single();
+  if (error) { console.error(error); showToast('Error duplicando el movimiento'); return; }
+  movements.push({ ...editingMovement, id: inserted.id });
+  closeMovementModal();
+  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses();
+  showToast('Movimiento duplicado');
 });
 document.querySelector('#movementPayment').addEventListener('change', (event) => { document.querySelector('#cardField').style.display = event.target.value === 'Tarjeta' ? '' : 'none'; });
 document.querySelector('#movementModal').addEventListener('click', (event) => { if (event.target.id === 'movementModal') closeMovementModal(); });
@@ -387,14 +488,14 @@ document.querySelector('#movementForm').addEventListener('submit', async (event)
   if (editingMovement) {
     const { error } = await supabaseClient.from('movements').update(payload).eq('id', editingMovement.id);
     if (error) { console.error(error); showToast('Error guardando el movimiento'); return; }
-    Object.assign(editingMovement, data, { code: data.company[0], badge: companyBadge(data.company), date: monthNames[data.month], category: typeLabels[data.type].singular });
+    Object.assign(editingMovement, data, { code: data.company[0], badge: companyBadge(data.company), date: monthLabel(data.month), category: typeLabels[data.type].singular });
   } else {
     const { data: inserted, error } = await supabaseClient.from('movements').insert(payload).select('id').single();
     if (error) { console.error(error); showToast('Error guardando el movimiento'); return; }
-    movements.push({ ...data, id: inserted.id, code: data.company[0], badge: companyBadge(data.company), date: monthNames[data.month], category: typeLabels[data.type].singular });
+    movements.push({ ...data, id: inserted.id, code: data.company[0], badge: companyBadge(data.company), date: monthLabel(data.month), category: typeLabels[data.type].singular });
   }
   closeMovementModal();
-  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution();
+  renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses();
   showToast('Movimiento guardado');
 });
 document.querySelectorAll('.movement-tab').forEach((tab) => tab.addEventListener('click', () => {
@@ -402,7 +503,7 @@ document.querySelectorAll('.movement-tab').forEach((tab) => tab.addEventListener
   document.querySelectorAll('.movement-tab').forEach((item) => item.classList.toggle('active', item === tab));
   renderRows();
 }));
-document.querySelector('#exchangeRate').addEventListener('input', () => { renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); });
+document.querySelector('#exchangeRate').addEventListener('input', () => { renderChart(); renderRows(); renderMonthlySummary(); renderDistribution(); renderTrendChart(); renderTopExpenses(); });
 document.querySelectorAll('.metric-toggle').forEach((card) => card.addEventListener('click', () => {
   const metric = card.dataset.metric;
   if (excludedMetrics.has(metric)) excludedMetrics.delete(metric); else excludedMetrics.add(metric);
@@ -419,16 +520,16 @@ const chartData = [[72, 38], [64, 31], [79, 40], [56, 34], [88, 46], [68, 39], [
 function renderChart() {
   const selected = companyNames[companyIndex];
   const companies = selected === 'Todas las empresas' ? companyNames.slice(1) : [selected];
-  const values = wembiiMonthly.map((item) => companies.reduce((totals, company) => {
-    const value = companyMonthValues(company, item.month);
+  const values = ALL_MONTHS.map((monthKey) => companies.reduce((totals, company) => {
+    const value = companyMonthValues(company, monthKey);
     return [totals[0] + value.income, totals[1] + value.expenses + value.investment];
   }, [0, 0]));
-  const maximum = Math.max(...values.flat());
+  const maximum = Math.max(1, ...values.flat());
   document.querySelector('#bars').innerHTML = values.map(([income, expense], index) => {
-    const month = monthNames[wembiiMonthly[index].month];
+    const month = monthLabel(ALL_MONTHS[index]);
     return `<div class="bar-group"><i class="bar income" style="height:${(income / maximum) * 100}%" data-month="${month}" data-label="Ingresos" data-value="${formatMoney(income)}"></i><i class="bar expense" style="height:${(expense / maximum) * 100}%" data-month="${month}" data-label="Gastos" data-value="${formatMoney(expense)}"></i></div>`;
   }).join('');
-  document.querySelector('.x-axis').innerHTML = wembiiMonthly.map((item) => `<span>${monthNames[item.month].slice(0, 3)}</span>`).join('');
+  document.querySelector('.x-axis').innerHTML = ALL_MONTHS.map((monthKey) => `<span>${monthLabel(monthKey).slice(0, 3)}</span>`).join('');
 }
 
 const chartTooltip = document.querySelector('#chartTooltip');
@@ -449,7 +550,167 @@ async function init() {
   renderRows();
   renderMonthlySummary();
   renderDistribution();
+  renderTrendChart();
+  renderTopExpenses();
+  loadReportConfigs();
 }
+
+function renderTrendChart() {
+  const selected = companyNames[companyIndex];
+  const selectedCompanies = selected === 'Todas las empresas' ? companyNames.slice(1) : [selected];
+  const points = ALL_MONTHS.map((monthKey) => {
+    const net = selectedCompanies.reduce((sum, company) => {
+      const values = companyMonthValues(company, monthKey);
+      return sum + values.income - values.expenses - values.investment;
+    }, 0);
+    return { month: monthKey, value: net };
+  });
+  const width = 600;
+  const height = 150;
+  const padding = 14;
+  const maxAbs = Math.max(1, ...points.map((point) => Math.abs(point.value)));
+  const stepX = (width - padding * 2) / (points.length - 1);
+  const scaleY = (value) => height / 2 - (value / maxAbs) * (height / 2 - padding);
+  const coords = points.map((point, index) => [padding + index * stepX, scaleY(point.value)]);
+  const path = coords.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const dots = coords.map(([x, y], index) => `<circle class="trend-dot ${points[index].value < 0 ? 'negative' : 'positive'}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5"><title>${monthLabel(points[index].month)}: ${formatMoney(points[index].value)}</title></circle>`).join('');
+  const labels = points.map((point, index) => `<text class="trend-label" x="${(padding + index * stepX).toFixed(1)}" y="${height - 2}" text-anchor="middle">${monthLabel(point.month).slice(0, 3)}</text>`).join('');
+  document.querySelector('#trendChart').innerHTML = `<svg viewBox="0 0 ${width} ${height}"><line class="trend-zero" x1="${padding}" y1="${height / 2}" x2="${width - padding}" y2="${height / 2}"></line><path class="trend-line" d="${path}"></path>${dots}${labels}</svg>`;
+}
+
+function renderTopExpenses() {
+  const selected = companyNames[companyIndex];
+  const selectedMonth = document.querySelector('#monthSelect').value;
+  const scoped = movements.filter((movement) => (selected === 'Todas las empresas' || movement.company === selected) && (selectedMonth === 'all' || movement.month === selectedMonth) && (movement.type === 'expense' || movement.type === 'investment'));
+  const ranked = scoped.map((movement) => ({ ...movement, clp: convertedValues(movement).clp })).sort((left, right) => right.clp - left.clp).slice(0, 8);
+  const container = document.querySelector('#topExpenses');
+  if (!ranked.length) {
+    container.innerHTML = '<p class="schedule-rows-empty">No hay gastos ni inversiones en este período.</p>';
+    return;
+  }
+  const max = ranked[0].clp;
+  container.innerHTML = ranked.map((movement) => `<div class="top-expense-row"><span class="top-expense-name">${movement.description}${selected === 'Todas las empresas' ? ` · ${movement.company}` : ''}</span><div class="top-expense-bar"><i style="width:${((movement.clp / max) * 100).toFixed(1)}%"></i></div><strong class="top-expense-amount">${formatMoney(movement.clp)}</strong></div>`).join('');
+}
+
+function buildReportSections(selectedKeys) {
+  const selected = companyNames[companyIndex];
+  const selectedMonth = document.querySelector('#monthSelect').value;
+  const blocks = [];
+  if (selectedKeys.includes('summary')) {
+    blocks.push(`<h3>Resumen financiero — ${selected} · ${monthLabel(selectedMonth)}</h3><div class="report-metrics"><div><span>Liquidez total</span><strong>${document.querySelector('#liquidity').textContent}</strong></div><div><span>Ingresos</span><strong>${document.querySelector('#income').textContent}</strong></div><div><span>Gastos</span><strong>${document.querySelector('#expenses').textContent}</strong></div><div><span>Inversión</span><strong>${document.querySelector('#investment').textContent}</strong></div><div><span>Resultado neto</span><strong>${document.querySelector('#netResult').textContent}</strong></div></div>`);
+  }
+  if (selectedKeys.includes('trend')) {
+    blocks.push(`<h3>Tendencia de resultado neto</h3>${document.querySelector('#trendChart').innerHTML}`);
+  }
+  if (selectedKeys.includes('topExpenses')) {
+    blocks.push(`<h3>Top gastos e inversiones</h3>${document.querySelector('#topExpenses').innerHTML}`);
+  }
+  if (selectedKeys.includes('distribution')) {
+    blocks.push(`<h3>Distribución por empresa (${{ income: 'Ingresos', expenses: 'Gastos', investment: 'Inversión' }[distributionBasis]})</h3><div class="company-list">${document.querySelector('.company-list').innerHTML}</div>`);
+  }
+  if (selectedKeys.includes('monthly')) {
+    blocks.push(`<h3>Resumen mensual</h3><table><thead><tr><th>Empresa</th><th>Mes</th><th>Saldo inicial</th><th>Ingresos</th><th>Gastos</th><th>Flujo neto</th><th>Saldo final</th></tr></thead><tbody>${monthlyRows.innerHTML}</tbody></table>`);
+  }
+  if (selectedKeys.includes('movements')) {
+    const scoped = movements.filter((movement) => (selected === 'Todas las empresas' || movement.company === selected) && (selectedMonth === 'all' || movement.month === selectedMonth));
+    const rowsHtml = scoped.map((movement) => `<tr><td>${movement.description}</td><td>${movement.company}</td><td>${monthLabel(movement.month)}</td><td>${movement.category}</td><td>${movement.status}</td><td>${formatMoney(convertedValues(movement).clp)}</td></tr>`).join('') || '<tr><td colspan="6">Sin movimientos en este período.</td></tr>';
+    blocks.push(`<h3>Detalle de movimientos</h3><table><thead><tr><th>Descripción</th><th>Empresa</th><th>Mes</th><th>Categoría</th><th>Estado</th><th>Importe</th></tr></thead><tbody>${rowsHtml}</tbody></table>`);
+  }
+  return blocks.join('');
+}
+
+document.querySelector('#generateReport').addEventListener('click', () => {
+  const selectedKeys = Array.from(document.querySelectorAll('.report-section-check:checked')).map((box) => box.value);
+  document.querySelector('#reportOutput').innerHTML = selectedKeys.length ? buildReportSections(selectedKeys) : '<p>Elegí al menos una sección para generar el reporte.</p>';
+  showToast('Reporte generado');
+});
+
+document.querySelector('#printReport').addEventListener('click', () => {
+  if (!document.querySelector('#reportOutput').innerHTML.trim()) document.querySelector('#generateReport').click();
+  window.print();
+});
+
+document.querySelector('#downloadCsv').addEventListener('click', () => {
+  const selected = companyNames[companyIndex];
+  const selectedMonth = document.querySelector('#monthSelect').value;
+  const scoped = movements.filter((movement) => (selected === 'Todas las empresas' || movement.company === selected) && (selectedMonth === 'all' || movement.month === selectedMonth));
+  const header = ['Descripcion', 'Empresa', 'Mes', 'Tipo', 'Moneda', 'Monto', 'Estado', 'FormaDePago'];
+  const csvRows = scoped.map((movement) => [movement.description, movement.company, movement.month, movement.category, movement.currency, movement.amount, movement.status, movement.paymentMethod || ''].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','));
+  const csv = [header.join(','), ...csvRows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `movimientos_${selected}_${selectedMonth}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+function updateScheduleFieldsVisibility() {
+  const frequency = document.querySelector('#scheduleFrequency').value;
+  document.querySelector('#scheduleDayWeekField').classList.toggle('hidden-field', frequency !== 'weekly');
+  document.querySelector('#scheduleDayMonthField').classList.toggle('hidden-field', frequency !== 'monthly');
+}
+document.querySelector('#scheduleFrequency').addEventListener('change', updateScheduleFieldsVisibility);
+
+function frequencyDetail(config) {
+  const hour = String(config.hour).padStart(2, '0');
+  if (config.frequency === 'daily') return `Todos los días a las ${hour}:00`;
+  if (config.frequency === 'weekly') {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return `${days[config.day_of_week] || ''} a las ${hour}:00`;
+  }
+  return `Día ${config.day_of_month} de cada mes a las ${hour}:00`;
+}
+
+function renderReportConfigs(configs) {
+  const tbody = document.querySelector('#scheduleRows');
+  if (!configs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="schedule-rows-empty">Todavía no configuraste ningún envío.</td></tr>';
+    return;
+  }
+  const frequencyLabels = { daily: 'Diaria', weekly: 'Semanal', monthly: 'Mensual' };
+  tbody.innerHTML = configs.map((config) => `<tr><td>${config.email}</td><td>${frequencyLabels[config.frequency]}</td><td>${frequencyDetail(config)}</td><td>${config.company}</td><td><button type="button" class="clear-filter delete-schedule" data-id="${config.id}">Eliminar</button></td></tr>`).join('');
+}
+
+async function loadReportConfigs() {
+  const { data, error } = await supabaseClient.from('report_configs').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  renderReportConfigs(data || []);
+}
+
+document.querySelector('#scheduleForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const frequency = document.querySelector('#scheduleFrequency').value;
+  const payload = {
+    email: document.querySelector('#scheduleEmail').value.trim(),
+    frequency,
+    day_of_week: frequency === 'weekly' ? Number(document.querySelector('#scheduleDayWeek').value) : null,
+    day_of_month: frequency === 'monthly' ? Number(document.querySelector('#scheduleDayMonth').value) : null,
+    hour: Number(document.querySelector('#scheduleHour').value) || 8,
+    company: document.querySelector('#scheduleCompany').value,
+    include_summary: document.querySelector('.schedule-section-check[value="summary"]').checked,
+    include_trend: document.querySelector('.schedule-section-check[value="trend"]').checked,
+    include_top_expenses: document.querySelector('.schedule-section-check[value="topExpenses"]').checked,
+    include_distribution: document.querySelector('.schedule-section-check[value="distribution"]').checked,
+    include_monthly: document.querySelector('.schedule-section-check[value="monthly"]').checked,
+    include_movements: document.querySelector('.schedule-section-check[value="movements"]').checked
+  };
+  const { error } = await supabaseClient.from('report_configs').insert(payload);
+  if (error) { console.error(error); showToast('Error guardando la configuración'); return; }
+  event.target.reset();
+  updateScheduleFieldsVisibility();
+  loadReportConfigs();
+  showToast('Configuración guardada');
+});
+
+document.querySelector('#scheduleRows').addEventListener('click', async (event) => {
+  const button = event.target.closest('.delete-schedule');
+  if (!button) return;
+  const { error } = await supabaseClient.from('report_configs').delete().eq('id', Number(button.dataset.id));
+  if (error) { console.error(error); showToast('Error eliminando la configuración'); return; }
+  loadReportConfigs();
+});
 
 async function restoreSession() {
   const { data: { session } } = await supabaseClient.auth.getSession();
