@@ -1,0 +1,53 @@
+insert into companies (name) values ('Wembii'), ('Ark Host'), ('Ark Studio')
+  on conflict (name) do nothing;
+
+insert into movements (company_id, month, type, description, amount, currency, status, payment_method, card)
+select c.id, v.month, v.type, v.description, v.amount, v.currency, v.status, v.payment_method, v.card
+from (values
+  ('2026-09', 'income', 'Entel Julio 2026', 610000, 'CLP', 'Pendiente', null, null),
+  ('2026-09', 'income', 'Controll', 288058, 'CLP', 'Pendiente', null, null),
+  ('2026-09', 'income', 'Canal Horeca Wembii', 25000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'income', 'Inversapiens', 1000000, 'CLP', 'Pendiente', null, null),
+  ('2026-09', 'income', 'Servicio Caco mensual', 250000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'income', 'Zero Energy', 100000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'income', 'Suralis', 350000, 'CLP', 'Pendiente', null, null),
+  ('2026-09', 'expense', 'Softwares', 267908, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'AWS', 337590, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Meta ADS', 300000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Bastian', 80000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Gonzalo', 350000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Pedro', 600000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Martin', 500000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Hosting', 50000, 'CLP', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Gsuite Wembii', 59, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Gsuite Ark', 8, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Gsuite Hosping', 8, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Cursor RA', 20, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Chat GPT', 30, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'WHMCS', 35, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Twilio MKT', 41, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Zapping', 8, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Youtube', 6, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Aweber', 5, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Rappi', 4, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Uber Eats', 4, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Netflix', 14, 'USD', 'Pagado', null, null),
+  ('2026-09', 'expense', 'Disney', 0, 'USD', 'Pagado', null, null),
+  ('2026-05', 'income', 'Entel Febrero 2026', 1647735, 'CLP', 'Pendiente', null, null),
+  ('2026-05', 'income', 'Controll', 145000, 'CLP', 'Pendiente', null, null),
+  ('2026-05', 'income', 'Inversapiens', 200000, 'CLP', 'Pendiente', null, null),
+  ('2026-05', 'income', 'Renovación operlog', 600000, 'CLP', 'Pendiente', null, null),
+  ('2026-05', 'expense', 'Softwares', 315803, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'AWS', 264000, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Meta ADS kiT', 0, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Youtube ADS', 100000, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Bastian', 700000, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Gonzalo', 500000, 'CLP', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Gsuite', 50, 'USD', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Crisp', 67, 'USD', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Cursor RA', 20, 'USD', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Aweber', 135, 'USD', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Chat GPT', 30, 'USD', 'Pagado', null, null),
+  ('2026-05', 'expense', 'Claude', 30, 'USD', 'Pagado', null, null)
+) as v(month, type, description, amount, currency, status, payment_method, card)
+cross join lateral (select id from companies where name = 'Wembii') c;

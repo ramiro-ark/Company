@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ark Finanzas</title>
+    <link rel="icon" type="image/png" href="Logos/Logo Ark Cuadrado (sin fondo).png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  </head>
+  <body>
+    <div class="loading-screen" id="loadingScreen"><div class="loading-orbit"><span></span><span></span><span></span><div class="loading-core">◈</div></div><div class="loading-brand"><strong>ARK</strong><small>GROUP</small></div><p>Preparando tu espacio financiero</p><div class="loading-track"><i></i></div></div>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <div class="brand login-brand"><img class="brand-logo" src="Logos/ARK GROUP/LOGO DEGRADE/Logo-Degrade-600px.png" alt="Ark Group" /></div>
+        <p class="eyebrow">ACCESO PRIVADO</p>
+        <h1>Finanzas de empresas</h1>
+        <p class="login-copy">Ingresá con una cuenta autorizada para consultar el dashboard consolidado.</p>
+        <div id="googleButton" class="google-button"></div>
+        <button class="dev-access" id="devAccess">Ingresar sin OAuth · modo desarrollo</button>
+        <p class="login-status" id="loginStatus">Solo pueden ingresar las cuentas autorizadas.</p>
+        <details class="setup-note"><summary>Configuración pendiente</summary><span>Agregá tu Client ID de Google en app.js para activar el inicio de sesión.</span></details>
+      </div>
+    </section>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" id="sidebarBrandLogo" src="Logos/ARK GROUP/LOGO DEGRADE/Logo-Degrade-600px.png" alt="Ark Group" /></div>
+        <div class="workspace-label">WORKSPACE</div>
+        <div class="workspace-switcher"><button class="company-switcher" id="companySwitcher" aria-haspopup="listbox" aria-expanded="false"><span class="company-icon">✦</span><span id="selectedCompany">Todas las empresas</span><span class="chevron">⌄</span></button><div class="company-menu" id="companyMenu" role="listbox"><button data-company="0" role="option" class="selected">Todas las empresas</button><button data-company="1" role="option">Wembii</button><button data-company="2" role="option">Ark Host</button><button data-company="3" role="option">Ark Studio</button></div></div>
+        <nav>
+          <a class="nav-item active" href="#overview"><span>◈</span> Resumen</a>
+          <a class="nav-item" href="#movements"><span>↔</span> Movimientos</a>
+          <a class="nav-item" href="#companies"><span>▦</span> Empresas</a>
+          <a class="nav-item" href="#reports"><span>▤</span> Reportes</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <a class="nav-item" href="#settings"><span>⚙</span> Configuración</a>
+          <div class="profile"><div class="avatar">RM</div><div><strong>Ramiro M.</strong><small>Administrador</small></div><button class="more" id="logoutButton" type="button" title="Cerrar sesión">⏻</button></div>
+        </div>
+      </aside>
+
+      <main class="main-content" id="overview">
+        <header class="topbar"><div><p class="eyebrow">MARTES, 15 SEPTIEMBRE 2026</p><h1>Resumen financiero</h1></div><div class="top-actions"><button class="icon-button" title="Notificaciones">♧<span class="notification-dot"></span></button><button class="button primary" id="addMovement">＋ Añadir movimiento</button></div></header>
+        <section class="filter-row"><div class="period-select"><span class="calendar">▣</span><select id="monthSelect" aria-label="Seleccionar mes"><option value="all" selected>Global</option><option value="2026-09">Septiembre 2026</option><option value="2026-08">Agosto 2026</option><option value="2026-07">Julio 2026</option><option value="2026-06">Junio 2026</option><option value="2026-05">Mayo 2026</option><option value="2026-04">Abril 2026</option><option value="2026-03">Marzo 2026</option><option value="2026-02">Febrero 2026</option><option value="2026-01">Enero 2026</option></select></div><label class="rate-input">USD 1 = CLP <input id="exchangeRate" type="number" value="950" min="1" step="1" /></label><span class="updated">Conversión automática · Histórico Wembii 2026</span></section>
+
+        <section class="metric-grid">
+          <article class="metric-card dark-card"><div class="metric-head"><span>Liquidez total</span><span class="metric-icon">◒</span></div><strong id="liquidity">$ 0</strong></article>
+          <article class="metric-card metric-toggle" data-metric="income" title="Click para incluir/excluir del resultado neto y la liquidez"><div class="metric-head"><span>Ingresos</span><span class="metric-icon green">↗</span></div><strong id="income">$ 0</strong><small class="toggle-hint">Excluido del resultado</small></article>
+          <article class="metric-card metric-toggle" data-metric="expenses" title="Click para incluir/excluir del resultado neto y la liquidez"><div class="metric-head"><span>Gastos</span><span class="metric-icon red">↘</span></div><strong id="expenses">$ 0</strong><small class="toggle-hint">Excluido del resultado</small></article>
+          <article class="metric-card metric-toggle" data-metric="investment" title="Click para incluir/excluir del resultado neto y la liquidez"><div class="metric-head"><span>Inversión</span><span class="metric-icon orange">◆</span></div><strong id="investment">$ 0</strong><small class="toggle-hint">Excluido del resultado</small></article>
+          <article class="metric-card"><div class="metric-head"><span>Resultado neto</span><span class="metric-icon blue">≈</span></div><strong id="netResult">$ 0</strong></article>
+        </section>
+
+        <section class="content-grid"><article class="panel cashflow-panel"><div class="panel-header"><div><h2>Flujo de caja</h2><p>Ingresos y gastos durante el período</p></div><div class="legend"><span><i class="legend-income"></i>Ingresos</span><span><i class="legend-expense"></i>Gastos</span></div></div><div class="chart-wrap"><div class="y-axis"><span>$100k</span><span>$75k</span><span>$50k</span><span>$25k</span><span>$0</span></div><div class="chart"><div class="grid-lines"><i></i><i></i><i></i><i></i><i></i></div><div class="bars" id="bars"></div><div class="x-axis"><span>01 Sep</span><span>08 Sep</span><span>15 Sep</span><span>22 Sep</span><span>30 Sep</span></div><div class="chart-tooltip" id="chartTooltip"></div></div></div></article>
+          <article class="panel distribution-panel"><div class="panel-header"><div><h2 id="distributionTitle">Por empresa</h2><p id="distributionSubtitle">Distribución de liquidez</p></div><div class="distribution-tabs"><button class="distribution-tab active" data-basis="income">Ingresos</button><button class="distribution-tab" data-basis="expenses">Gastos</button></div></div><div class="donut-wrap"><div class="donut"><div class="donut-center"><strong>$0</strong><span>Total</span></div></div></div><div class="company-list"><div><span class="company-name"><i class="dot dot-a"></i>Wembii</span><strong>100%</strong></div><div><span class="company-name"><i class="dot dot-b"></i>Ark Host</span><strong>Sin datos</strong></div><div><span class="company-name"><i class="dot dot-c"></i>Ark Studio</span><strong>Sin datos</strong></div></div></article></section>
+
+        <section class="panel movements-panel" id="movements"><div class="panel-header movements-header"><div><h2>Movimientos</h2><p id="movementSubtitle">Detalle financiero del período seleccionado</p></div><div class="movement-actions"><div class="movement-tabs"><button class="movement-tab active" data-type="income">Ingresos</button><button class="movement-tab" data-type="expense">Egresos</button><button class="movement-tab" data-type="investment">Inversión</button></div><button class="filter-button" id="filterButton">☷ Filtrar</button></div></div><div class="movement-filters" id="movementFilters"><label>Estado<select id="statusFilter"><option value="all">Todos</option><option value="Pagado">Pagado</option><option value="Pendiente">Pendiente</option></select></label><label>Categoría<input id="categoryFilter" placeholder="Buscar categoría" /></label><button class="clear-filter" id="clearFilters" type="button">Limpiar</button></div><div class="table-wrap"><table><thead><tr><th><button class="sort-head" data-sort="description">DESCRIPCIÓN ↕</button></th><th id="companyHeader"><button class="sort-head" data-sort="company">EMPRESA ↕</button></th><th id="dateHeader"><button class="sort-head" data-sort="date">FECHA ↕</button></th><th><button class="sort-head" data-sort="category">CATEGORÍA ↕</button></th><th><button class="sort-head" data-sort="status">ESTADO ↕</button></th><th><button class="sort-head" data-sort="payment">FORMA DE PAGO ↕</button></th><th class="align-right"><button class="sort-head" data-sort="amount">IMPORTE ↕</button></th></tr></thead><tbody id="movementRows"></tbody></table></div></section>
+        <section class="panel monthly-panel" id="reports"><div class="panel-header"><div><h2>Resumen mensual</h2><p>El flujo de cada mes se arrastra automáticamente al siguiente</p></div><div class="monthly-actions"><button class="sort-button" id="monthlySort" type="button">↓ Más recientes primero</button><span class="carry-label">↳ Saldo acumulado</span></div></div><div class="table-wrap"><table><thead><tr><th>EMPRESA</th><th>MES</th><th>SALDO INICIAL</th><th>INGRESOS</th><th>GASTOS</th><th>FLUJO NETO</th><th>SALDO FINAL</th></tr></thead><tbody id="monthlyRows"></tbody></table></div></section>
+        <footer><span>ARK GROUP · Panel financiero consolidado</span><span>Datos disponibles · Conectá tus cuentas para completar el grupo</span></footer>
+      </main>
+    </div>
+    <div class="toast" id="toast">Movimiento añadido</div>
+    <div class="modal-backdrop" id="movementModal" aria-hidden="true"><form class="movement-modal" id="movementForm"><div class="modal-header"><div><p class="eyebrow">MOVIMIENTO EDITABLE</p><h2 id="modalTitle">Añadir movimiento</h2></div><button type="button" class="modal-close" id="closeModal">×</button></div><label>Descripción<input id="movementDescription" required /></label><div class="form-grid"><label>Empresa<select id="movementCompany"><option>Wembii</option><option>Ark Host</option><option>Ark Studio</option></select></label><label>Mes<select id="movementMonth"><option value="2026-09">Septiembre 2026</option><option value="2026-08">Agosto 2026</option><option value="2026-07">Julio 2026</option><option value="2026-06">Junio 2026</option><option value="2026-05">Mayo 2026</option><option value="2026-04">Abril 2026</option><option value="2026-03">Marzo 2026</option><option value="2026-02">Febrero 2026</option><option value="2026-01">Enero 2026</option></select></label></div><div class="form-grid"><label>Tipo<select id="movementKind"><option value="income">Ingreso</option><option value="expense">Egreso</option><option value="investment">Inversión</option></select></label><label>Moneda<select id="movementCurrency"><option value="CLP">CLP</option><option value="USD">USD</option></select></label></div><div class="form-grid"><label>Importe<input id="movementAmount" type="number" min="0" step="0.01" required /></label><label>Estado<select id="movementStatus"><option>Pagado</option><option>Pendiente</option></select></label></div><div class="form-grid"><label>Forma de pago<select id="movementPayment"><option value="">No especificada</option><option>Transferencia</option><option>Tarjeta</option><option>Efectivo</option><option>Débito automático</option></select></label><label id="cardField">Tarjeta<input id="movementCard" placeholder="Ej. Visa corporativa" /></label></div><div class="modal-actions"><button type="button" class="button danger" id="deleteMovement">Eliminar</button><span class="modal-spacer"></span><button type="button" class="button secondary" id="cancelModal">Cancelar</button><button class="button primary" type="submit">Guardar cambios</button></div></form></div>
+    <script src="app.js"></script>
+  </body>
+</html>
